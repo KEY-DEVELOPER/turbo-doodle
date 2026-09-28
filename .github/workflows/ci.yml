@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (ruff, mypy, import-linter, alembic, pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: edgeledger
+          POSTGRES_PASSWORD: edgeledger
+          POSTGRES_DB: edgeledger
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U edgeledger"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      EDGELEDGER_ENVIRONMENT: test
+      EDGELEDGER_DATABASE_URL: postgresql+psycopg://edgeledger:edgeledger@localhost:5432/edgeledger
+      EDGELEDGER_TEST_DATABASE_URL: postgresql+psycopg://edgeledger:edgeledger@localhost:5432/postgres
+      EDGELEDGER_REQUIRE_DB: "1"  # DB tests must run, never skip, in CI
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install
+        run: uv sync --locked
+      - name: ruff check
+        run: uv run ruff check . ../tools
+      - name: ruff format --check
+        run: uv run ruff format --check . ../tools
+      - name: mypy
+        run: uv run mypy app
+      - name: import-linter (module boundaries)
+        run: uv run lint-imports
+      - name: alembic upgrade head
+        run: uv run alembic upgrade head
+      - name: alembic check (models match migrations)
+        run: uv run alembic check
+      - name: pytest
+        run: uv run pytest -q
+      - name: OpenAPI schema is up to date
+        run: |
+          uv run python -m app.api.openapi_export ../frontend/openapi.json
+          git diff --exit-code -- ../frontend/openapi.json
+
+  copy-lint:
+    name: Banned terms (RG-08)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python tools/banned_terms.py
+
+  frontend:
+    name: Frontend (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Generated API client is up to date
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/lib/api/generated
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

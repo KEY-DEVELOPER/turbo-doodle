@@ -1,0 +1,147 @@
+# RG-08 banned-terms linter configuration (PRD 13.7, 15.4). Used by tools/banned_terms.py.
+#
+# Patterns are Python regexes, matched case-insensitively on whole words (a banned term inside
+# a longer word, e.g. "uncertainty", is not a match). Add languages as they become supported.
+# Removing or weakening a term needs product sign-off (PRD 13.7).
+
+[scan]
+# Globs relative to the repo root: user-facing strings (UI, alerts, emails, API messages,
+# user docs, marketing). Python files are scanned for string literals only (not code or
+# docstrings); every other file type is scanned in full.
+include = [
+    "frontend/src/**/*",
+    "frontend/app/**/*",
+    "frontend/public/**/*",
+    "frontend/messages/**/*",
+    "frontend/locales/**/*",
+    "backend/app/**/*.py",
+    "backend/app/**/templates/**/*",
+    "docs/user/**/*",
+    "marketing/**/*",
+]
+exclude = [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/__tests__/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.snap",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.gif",
+    "**/*.ico",
+    "**/*.webp",
+    "**/*.woff",
+    "**/*.woff2",
+]
+
+[[terms]]
+term = "guaranteed"
+lang = "en"
+patterns = ["guarantee[ds]?", "guaranteeing"]
+
+[[terms]]
+term = "lock"
+lang = "en"
+patterns = ["locks?", "lock of the (?:day|week)"]
+
+[[terms]]
+term = "risk-free"
+lang = "en"
+patterns = ["risk[\\s-]*free", "no[\\s-]+risk", "zero[\\s-]+risk"]
+
+[[terms]]
+term = "sure bet"
+lang = "en"
+patterns = ["sure[\\s-]*bets?", "sure[\\s-]+(?:thing|win|winner)s?"]
+
+[[terms]]
+term = "can't lose"
+lang = "en"
+patterns = ["can[’']?t\\s+lose", "can\\s*not\\s+lose", "never\\s+lose", "no[\\s-]+lose"]
+
+[[terms]]
+term = "free money"
+lang = "en"
+patterns = ["free\\s+money"]
+
+[[terms]]
+term = "banker"
+lang = "en"
+patterns = ["bankers?"]
+
+[[terms]]
+term = "certain"
+lang = "en"
+patterns = ["certain", "100\\s*%\\s*(?:win|sure|safe)"]
+
+[[terms]]
+term = "easy profit"
+lang = "en"
+patterns = ["easy\\s+(?:profits?|money|wins?)"]
+
+# ---------------------------------------------------------------- Italian (it)
+
+[[terms]]
+term = "guaranteed"
+lang = "it"
+patterns = ["garantit[oaie]", "garantisc[eo]", "garantiamo", "garanzia\\s+di\\s+vincita"]
+
+[[terms]]
+term = "lock"
+lang = "it"
+patterns = ["blindat[oaie]"]
+
+[[terms]]
+term = "risk-free"
+lang = "it"
+patterns = ["senza\\s+rischi[o]?", "(?:a\\s+)?rischio\\s+zero"]
+
+[[terms]]
+term = "sure bet"
+lang = "it"
+patterns = [
+    "scommess[ae]\\s+sicur[ae]",
+    "vincit[ae]\\s+sicur[ae]",
+    "pronostic[oi]\\s+sicur[oi]",
+    "quot[ae]\\s+sicur[ae]",
+    "(?:a\\s+)?colpo\\s+sicuro",
+    "sicur[oa]\\s+al\\s+100\\s*%",
+]
+
+[[terms]]
+term = "can't lose"
+lang = "it"
+patterns = ["non\\s+(?:si\\s+)?pu[oò]i?\\s+perdere", "impossibile\\s+perdere", "non\\s+perdi\\s+mai"]
+
+[[terms]]
+term = "free money"
+lang = "it"
+patterns = ["soldi\\s+(?:gratis|regalati)", "denaro\\s+gratis"]
+
+[[terms]]
+term = "banker"
+lang = "it"
+patterns = ["fiss[oa]\\s+del\\s+giorno", "il\\s+fisso"]
+
+[[terms]]
+term = "certain"
+lang = "it"
+patterns = [
+    "vittori[ae]\\s+cert[ae]",
+    "vincit[ae]\\s+cert[ae]",
+    "risultat[oi]\\s+cert[oi]",
+    "cert[oa]\\s+al\\s+100\\s*%",
+]
+
+[[terms]]
+term = "easy profit"
+lang = "it"
+patterns = [
+    "soldi\\s+facili",
+    "denaro\\s+facile",
+    "guadagn[oi]\\s+facil[ei]",
+    "profitt[oi]\\s+facil[ei]",
+    "vincit[ae]\\s+facil[ei]",
+]

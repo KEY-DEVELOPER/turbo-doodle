@@ -1,0 +1,181 @@
+; Module boundaries (PRD 14.3, CLAUDE.md 4). Run: `uv run lint-imports` from backend/.
+; Changing a contract needs an ADR in docs/decisions/ and Architect review.
+; Rules that imports cannot express are enforced elsewhere:
+;   - append-only tables / ledger / audit: DB triggers (app/core/ddl.py)
+;   - notify -> wellbeing check before send: runtime test in notify (NOTIFY/ALRT tasks)
+
+[importlinter]
+root_packages =
+    app
+include_external_packages = False
+
+[importlinter:contract:core-is-foundation]
+name = app.core imports no domain module and no API code
+type = forbidden
+source_modules =
+    app.core
+forbidden_modules =
+    app.main
+    app.api
+    app.all_models
+    app.sources
+    app.reference
+    app.events
+    app.markets
+    app.features
+    app.models
+    app.opportunities
+    app.pato
+    app.betting
+    app.ledger
+    app.settlement
+    app.analytics
+    app.notify
+    app.wellbeing
+    app.identity
+    app.audit
+
+[importlinter:contract:api-on-top]
+name = Domain modules never import the HTTP layer
+type = forbidden
+source_modules =
+    app.sources
+    app.reference
+    app.events
+    app.markets
+    app.features
+    app.models
+    app.opportunities
+    app.pato
+    app.betting
+    app.ledger
+    app.settlement
+    app.analytics
+    app.notify
+    app.wellbeing
+    app.identity
+    app.audit
+forbidden_modules =
+    app.main
+    app.api
+
+[importlinter:contract:sources-no-curated-writes]
+name = sources never writes curated tables (only raw landing + licence register)
+type = forbidden
+source_modules =
+    app.sources
+forbidden_modules =
+    app.reference
+    app.events
+    app.markets
+    app.features
+    app.models
+    app.opportunities
+    app.pato
+    app.betting
+    app.ledger
+    app.settlement
+    app.analytics
+    app.notify
+    app.wellbeing
+    app.identity
+
+[importlinter:contract:markets-no-users]
+name = markets knows nothing about users
+type = forbidden
+source_modules =
+    app.markets
+forbidden_modules =
+    app.identity
+    app.betting
+    app.ledger
+    app.settlement
+    app.analytics
+    app.notify
+    app.wellbeing
+
+[importlinter:contract:features-models-no-user-data]
+name = features / models never read user data
+type = forbidden
+source_modules =
+    app.features
+    app.models
+forbidden_modules =
+    app.identity
+    app.betting
+    app.ledger
+    app.settlement
+    app.analytics
+    app.notify
+    app.wellbeing
+
+[importlinter:contract:pato-does-not-feed-models]
+name = pato never feeds features/models (validated-cohort path needs an ADR)
+type = forbidden
+source_modules =
+    app.features
+    app.models
+forbidden_modules =
+    app.pato
+
+[importlinter:contract:opportunities-no-bets]
+name = opportunities never writes bets or money
+type = forbidden
+source_modules =
+    app.opportunities
+forbidden_modules =
+    app.betting
+    app.ledger
+    app.settlement
+
+[importlinter:contract:betting-no-model-or-raw-writes]
+name = betting never touches predictions, features or raw source data
+type = forbidden
+source_modules =
+    app.betting
+forbidden_modules =
+    app.models
+    app.features
+    app.sources
+
+[importlinter:contract:ledger-is-below-callers]
+name = ledger does not depend on the modules that post to it
+type = forbidden
+source_modules =
+    app.ledger
+forbidden_modules =
+    app.betting
+    app.settlement
+    app.analytics
+    app.notify
+
+[importlinter:contract:ledger-tables-private]
+name = settlement (and everyone else) goes through the ledger service, never ledger.models
+type = protected
+protected_modules =
+    app.ledger.models
+allowed_importers =
+    app.ledger
+    app.all_models
+
+[importlinter:contract:audit-is-leaf]
+name = audit depends only on core
+type = forbidden
+source_modules =
+    app.audit
+forbidden_modules =
+    app.sources
+    app.reference
+    app.events
+    app.markets
+    app.features
+    app.models
+    app.opportunities
+    app.pato
+    app.betting
+    app.ledger
+    app.settlement
+    app.analytics
+    app.notify
+    app.wellbeing
+    app.identity
