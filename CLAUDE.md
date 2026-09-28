@@ -37,15 +37,21 @@ backend/
     sources/  reference/  events/  markets/  features/  models/
     opportunities/  pato/  betting/  ledger/  settlement/  analytics/
     notify/  wellbeing/  identity/  audit/
-    core/          # shared: db session, ULIDs, time utils, bitemporal helpers, errors
+    core/          # shared: settings, db session, ULIDs, time utils, bitemporal helpers,
+                   # errors, DB guard DDL (append-only / bitemporal / partitions)
     api/v1/        # routers only; business logic lives in modules
+    all_models.py  # imports every module's models.py (Alembic + tests) — add yours here
   migrations/      # Alembic
-  tests/
-frontend/
+  tests/           # tests/fixtures/ = recorded provider payloads
+  .importlinter    # module-boundary contracts
+frontend/          # Next.js 16 (read frontend/AGENTS.md), src/lib/api/generated = generated client
+tools/             # banned_terms.py + banned_terms.toml (RG-08)
 tests/e2e/
-docs/decisions/    # ADRs and meeting outputs
+docs/decisions/    # ADRs and meeting outputs (0001 = foundation conventions)
 tasks/             # PRD and task specs
 ```
+
+Local setup and every command: root `README.md` → "Local development".
 
 ## 4. Module ownership (PRD §14.3) — the most important rule
 
@@ -124,10 +130,13 @@ Module boundaries are enforced by import-linter. Key rules:
 3. Keep the change scoped to your module(s) and to the requirement. No drive-by refactors.
 4. Run before finishing:
    ```bash
-   cd backend && ruff check . && ruff format --check . && mypy app && pytest -q
-   lint-imports
-   cd ../frontend && npm run lint && npm run typecheck && npm test
+   cd backend && uv run ruff check . ../tools && uv run ruff format --check . ../tools \
+     && uv run mypy app && uv run lint-imports && uv run alembic check && uv run pytest -q
+   cd .. && python3 tools/banned_terms.py
+   cd frontend && npm run lint && npm run typecheck && npm test
    ```
+   DB tests need Postgres (`docker compose up -d`; see README). They skip locally if it is
+   unreachable but always run in CI — do not rely on the skip.
    (Run only the parts relevant to your change if the other side does not exist yet.)
 5. Commit with a message like `LED-01: double-entry ledger accounts and transactions`.
 6. End your turn with a short summary: requirement IDs done, ACs covered by which tests,
@@ -136,10 +145,16 @@ Module boundaries are enforced by import-linter. Key rules:
 ## 10. Database migrations
 
 - At most **one Alembic migration per PR**, named `<rev>_<req_id>_<short_desc>.py`.
+  Create it with `uv run alembic revision --autogenerate -m "<req_id>_<short_desc>"`
+  (e.g. `led01_ledger_accounts`) and review the output; register new models in
+  `app/all_models.py`.
 - Before opening a PR: `git fetch && git rebase origin/main`, then check `alembic heads`.
   If there is more than one head, regenerate your migration on top of the current head
   (do not create merge migrations unless asked).
 - Migrations must be reversible (`downgrade` implemented) unless the task says otherwise.
+- Append-only tables attach `app.core.ddl.append_only_triggers(table)`; bitemporal tables use
+  `BitemporalMixin` + `bitemporal_table_args` + `bitemporal_triggers(table)`; partitioned
+  tables use `edgeledger_ensure_monthly_partitions` (ADR 0001).
 - User-owned tables get `user_id` and a row-level security policy.
 
 ## 11. Pull requests

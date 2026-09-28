@@ -1,0 +1,59 @@
+# Local infrastructure for EdgeLedger. Dev credentials only - never reuse outside localhost.
+name: edgeledger
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-edgeledger}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-edgeledger}
+      POSTGRES_DB: ${POSTGRES_DB:-edgeledger}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-edgeledger}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # MinIO stopped publishing official images in 2025; Chainguard's free builds are used instead.
+  minio:
+    image: chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    user: "0"  # named volume is root-owned; dev only
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-edgeledger}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-edgeledger-dev-only}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/data
+
+  # One-shot: create the dev bucket (raw payloads, Parquet snapshots). Retries until MinIO is up.
+  minio-init:
+    image: chainguard/minio-client:latest
+    depends_on:
+      - minio
+    environment:
+      MC_HOST_local: http://${MINIO_ROOT_USER:-edgeledger}:${MINIO_ROOT_PASSWORD:-edgeledger-dev-only}@minio:9000
+    command: ["mb", "--ignore-existing", "local/${EDGELEDGER_S3_BUCKET:-edgeledger-dev}"]
+    restart: on-failure:10
+
+volumes:
+  pgdata:
+  miniodata:
